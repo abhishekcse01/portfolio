@@ -9,6 +9,8 @@
 
 ---
 
+> **Detailed module specs:** see [`scam-shield/specs/`](scam-shield/specs/00-README.md).
+
 ## 1. Summary
 
 India loses tens of thousands of crores a year to cyber fraud. The scams also move fast: KYC-update SMS gave way to fake APK files on WhatsApp, then "digital arrest" video calls, then deepfake investment ads and cloned voices. Fixing one channel isn't enough, because a single scam usually runs across several (call → WhatsApp → APK → UPI).
