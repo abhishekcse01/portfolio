@@ -98,7 +98,7 @@ $('board').addEventListener('click', e => {
 });
 $('reset').onclick = () => { Arcade.sfx.tap(); newGame(); };
 Arcade.seg($('mode'), v => { mode = v; score = { X: 0, O: 0, D: 0 }; ['sx','so','sd'].forEach(k => $(k).textContent = 0); starter = 'X'; newGame(); });
-newGame();
+if (new URLSearchParams(location.search).get('mode') === 'friend') document.querySelector('#mode [data-v=friend]').click(); else newGame();
 </script>
 </body>
 </html>

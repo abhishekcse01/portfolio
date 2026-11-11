@@ -1,7 +1,7 @@
 // Offline cache for Mini Arcade. Bump VERSION when files change.
-const VERSION = 'arcade-v1';
+const VERSION = 'arcade-v2';
 const FILES = ['index.html', 'games.css', 'common.js', 'icon.svg', 'manifest.webmanifest',
-  'memory.html', 'balloon.html', 'tictactoe.html', 'simon.html', 'math.html'];
+  'memory.html', 'balloon.html', 'tictactoe.html', 'simon.html', 'math.html', 'word.html', 'slide.html'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });

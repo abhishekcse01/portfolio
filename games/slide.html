@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Slide Puzzle</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .board{position:relative;width:min(100%,380px);aspect-ratio:1;background:var(--card);border:1px solid var(--bd);border-radius:22px;touch-action:manipulation}
+  .t{position:absolute;appearance:none;border:0;cursor:pointer;font:inherit;font-weight:900;color:#fff;border-radius:16px;
+    box-shadow:0 4px 0 rgba(0,0,0,.25);transition:left .15s,top .15s;display:grid;place-items:center}
+  .t.home{outline:3px solid var(--ok);outline-offset:-3px}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>🧩 Slide Puzzle</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="lvl"><button data-v="easy" class="on">Easy 3×3</button><button data-v="hard">Hard 4×4</button></div>
+  <div class="stats"><div class="stat"><small>Moves</small><span id="moves">0</span></div><div class="stat"><small>Best</small><span id="best">–</span></div></div>
+  <div class="board" id="board"></div>
+  <button class="btn ghost" id="reset">🔀 Shuffle</button>
+  <p class="hint">Tap a tile next to the gap to slide it. Put the numbers in order!</p>
+</main>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const SIZE = { easy: 3, hard: 4 }, HUES = [258, 190, 330, 150, 40, 10, 220, 290];
+let level = 'easy', n, cells, moves, solved; // cells[pos] = tile number, 0 = gap
+function showBest() { $('best').textContent = Arcade.best('slide-' + level, undefined, true).best ?? '–'; }
+const neighbors = p => [p % n ? p - 1 : -1, p % n < n - 1 ? p + 1 : -1, p - n, p + n].filter(q => q >= 0 && q < n * n);
+function start() {
+  n = SIZE[level]; moves = 0; solved = false; $('moves').textContent = 0;
+  cells = [...Array(n * n - 1).keys()].map(i => i + 1).concat(0);
+  // Shuffle with random legal moves so the puzzle is always solvable.
+  let gap = n * n - 1, prev = -1;
+  for (let i = 0; i < n * n * 30; i++) {
+    const opts = neighbors(gap).filter(q => q !== prev), q = opts[Math.random() * opts.length | 0];
+    cells[gap] = cells[q]; cells[q] = 0; prev = gap; gap = q;
+  }
+  if (isDone()) return start();
+  $('board').innerHTML = cells.filter(Boolean).map(v => `<button class="t" data-v="${v}" style="background:hsl(${HUES[(v - 1) % HUES.length]} 70% 55%)">${v}</button>`).join('');
+  layout(); showBest();
+}
+const isDone = () => cells.every((v, i) => v === (i + 1) % (n * n));
+function layout() {
+  const gapPx = 8, w = `calc((100% - ${gapPx * (n + 1)}px) / ${n})`;
+  cells.forEach((v, p) => {
+    if (!v) return;
+    const el = $('board').querySelector(`[data-v="${v}"]`), r = p / n | 0, c = p % n;
+    el.style.width = el.style.height = w;
+    el.style.fontSize = n === 3 ? '40px' : '30px';
+    el.style.left = `calc(${gapPx}px + ${c} * (${w} + ${gapPx}px))`;
+    el.style.top = `calc(${gapPx}px + ${r} * (${w} + ${gapPx}px))`;
+    el.classList.toggle('home', v === p + 1);
+  });
+}
+$('board').addEventListener('click', e => {
+  const t = e.target.closest('.t'); if (!t || solved) return;
+  const p = cells.indexOf(+t.dataset.v), gap = cells.indexOf(0);
+  if (!neighbors(p).includes(gap)) { Arcade.buzz(40); return; }
+  cells[gap] = cells[p]; cells[p] = 0; moves++; $('moves').textContent = moves;
+  Arcade.sfx.tap(); Arcade.buzz(10); layout();
+  if (isDone()) {
+    solved = true;
+    const r = Arcade.best('slide-' + level, moves, true); showBest();
+    setTimeout(() => { Arcade.sfx.win(); Arcade.modal({ icon: r.isNew ? '🏆' : '🧩', title: r.isNew ? 'New best!' : 'Solved!', text: `You finished in ${moves} moves.`, onBtn: start }); }, 300);
+  }
+});
+$('reset').onclick = () => { Arcade.sfx.tap(); start(); };
+Arcade.seg($('lvl'), v => { level = v; start(); });
+start();
+</script>
+</body>
+</html>

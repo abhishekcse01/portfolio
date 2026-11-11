@@ -6,4 +6,4 @@ Run locally: `npx serve .`
 
 ## 🎮 Mini Arcade
 
-Mobile-friendly games for kids & adults in [`games/`](games/) — Memory Match, Balloon Pop, Tic-Tac-Toe, Color Sequence, Quick Math. Installable as a PWA, works offline. See [games/PLAN.md](games/PLAN.md).
+Mobile-friendly games for kids & adults in [`games/`](games/) — Memory Match, Balloon Pop, Tic-Tac-Toe, Color Sequence, Quick Math, Word Scramble, Slide Puzzle. Installable as a PWA, works offline. See [games/PLAN.md](games/PLAN.md).
