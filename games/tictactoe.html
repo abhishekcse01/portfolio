@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Tic-Tac-Toe</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(100%,380px);aspect-ratio:1}
+  .cell{appearance:none;border:0;background:var(--card);border:1px solid var(--bd);border-radius:20px;font-size:clamp(44px,15vw,72px);
+    font-weight:900;cursor:pointer;color:var(--tx);display:grid;place-items:center}
+  .cell.x{color:var(--c)} .cell.o{color:var(--b)}
+  .cell span{animation:pop .25s cubic-bezier(.2,1.4,.4,1)}
+  .cell.win{background:var(--ok);color:#fff}
+  .turn{font-weight:800;font-size:18px}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>⭕ Tic-Tac-Toe</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="mode"><button data-v="easy" class="on">🤖 Easy</button><button data-v="hard">🤖 Hard</button><button data-v="friend">👫 Friend</button></div>
+  <div class="stats"><div class="stat"><small>❌</small><span id="sx">0</span></div><div class="stat"><small>Draw</small><span id="sd">0</span></div><div class="stat"><small>⭕</small><span id="so">0</span></div></div>
+  <div class="turn" id="turn"></div>
+  <div class="board" id="board"></div>
+  <button class="btn ghost" id="reset">New game</button>
+</main>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const SYM = { X: '❌', O: '⭕' };
+let b, turn, over, mode = 'easy', score = { X: 0, O: 0, D: 0 }, starter = 'X';
+function winner(s) {
+  for (const l of LINES) if (s[l[0]] && s[l[0]] === s[l[1]] && s[l[0]] === s[l[2]]) return { w: s[l[0]], line: l };
+  return s.every(Boolean) ? { w: 'D' } : null;
+}
+function minimax(s, p) {
+  const r = winner(s);
+  if (r) return { v: r.w === 'O' ? 10 : r.w === 'X' ? -10 : 0 };
+  let best = { v: p === 'O' ? -99 : 99 };
+  s.forEach((c, i) => {
+    if (c) return;
+    s[i] = p; const v = minimax(s, p === 'O' ? 'X' : 'O').v; s[i] = null;
+    if (p === 'O' ? v > best.v : v < best.v) best = { v, i };
+  });
+  return best;
+}
+function botMove() {
+  const free = b.map((c, i) => c ? null : i).filter(i => i !== null);
+  let i;
+  if (mode === 'hard') i = minimax(b.slice(), 'O').i;
+  else {
+    // Easy: win if obvious, otherwise mostly random so kids can win.
+    i = free.find(k => { const t = b.slice(); t[k] = 'O'; return winner(t)?.w === 'O'; });
+    if (i === undefined || Math.random() < .5) i = free[Math.random() * free.length | 0];
+  }
+  play(i);
+}
+function render() {
+  $('board').innerHTML = b.map((c, i) => `<button class="cell ${c ? c.toLowerCase() : ''}" data-i="${i}" aria-label="cell ${i + 1}">${c ? `<span>${SYM[c]}</span>` : ''}</button>`).join('');
+  if (!over) $('turn').textContent = mode === 'friend' ? `${SYM[turn]}'s turn` : turn === 'X' ? 'Your turn ❌' : 'Robot is thinking… 🤖';
+}
+function play(i) {
+  if (over || b[i]) return;
+  b[i] = turn; Arcade.tone(turn === 'X' ? 600 : 450, .08, 'triangle'); Arcade.buzz(10);
+  const r = winner(b);
+  turn = turn === 'X' ? 'O' : 'X';
+  render();
+  if (r) return finish(r);
+  if (mode !== 'friend' && turn === 'O') setTimeout(botMove, 450);
+}
+function finish(r) {
+  over = true; score[r.w]++;
+  $('sx').textContent = score.X; $('so').textContent = score.O; $('sd').textContent = score.D;
+  if (r.line) r.line.forEach(i => $('board').children[i].classList.add('win'));
+  let icon = '🤝', title = "It's a draw!";
+  if (r.w !== 'D') {
+    if (mode === 'friend') { icon = '🎉'; title = `${SYM[r.w]} wins!`; Arcade.sfx.win(); }
+    else if (r.w === 'X') { icon = '🏆'; title = 'You win!'; Arcade.sfx.win(); }
+    else { icon = '🤖'; title = 'Robot wins this time'; Arcade.sfx.bad(); }
+  }
+  $('turn').textContent = title;
+  setTimeout(() => Arcade.modal({ icon, title, text: 'Fancy another round?', onBtn: newGame }), 700);
+}
+function newGame() {
+  b = Array(9).fill(null); over = false;
+  // Alternate who starts each round to keep it fair.
+  turn = starter; starter = starter === 'X' ? 'O' : 'X';
+  render();
+  if (mode !== 'friend' && turn === 'O') setTimeout(botMove, 500);
+}
+$('board').addEventListener('click', e => {
+  const c = e.target.closest('.cell'); if (!c) return;
+  if (mode !== 'friend' && turn === 'O') return;
+  play(+c.dataset.i);
+});
+$('reset').onclick = () => { Arcade.sfx.tap(); newGame(); };
+Arcade.seg($('mode'), v => { mode = v; score = { X: 0, O: 0, D: 0 }; ['sx','so','sd'].forEach(k => $(k).textContent = 0); starter = 'X'; newGame(); });
+newGame();
+</script>
+</body>
+</html>

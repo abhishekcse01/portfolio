@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Memory Match</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .board{display:grid;gap:10px;width:100%}
+  .cardx{aspect-ratio:3/4;perspective:600px;cursor:pointer}
+  .inner{position:relative;width:100%;height:100%;transition:transform .35s;transform-style:preserve-3d}
+  .cardx.open .inner,.cardx.done .inner{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;border-radius:16px;display:grid;place-items:center;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .front{background:linear-gradient(135deg,var(--a),var(--b));font-size:28px;color:rgba(255,255,255,.6);box-shadow:0 4px 0 rgba(0,0,0,.2)}
+  .back-f{background:var(--card);border:2px solid var(--bd);transform:rotateY(180deg);font-size:clamp(28px,9vw,48px)}
+  .cardx.done .back-f{border-color:var(--ok);animation:pop .3s}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>🧠 Memory Match</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="lvl"><button data-v="easy" class="on">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button></div>
+  <div class="stats"><div class="stat"><small>Moves</small><span id="moves">0</span></div><div class="stat"><small>Pairs</small><span id="pairs">0</span></div><div class="stat"><small>Best</small><span id="best">–</span></div></div>
+  <div class="board" id="board"></div>
+  <p class="hint">Tap two cards. Same picture? They stay open!</p>
+</main>
+<script src="common.js"></script>
+<script>
+const EMOJI = ['🐶','🐱','🦊','🐼','🐸','🦁','🐵','🐧','🦄','🐙','🐢','🦋','🍉','🍓','🚀','⚽'];
+const LV = { easy: [4, 6], medium: [4, 8], hard: [4, 10] }; // [cols, pairs]
+let level = 'easy', open = [], moves = 0, found = 0, lock = false;
+const $ = id => document.getElementById(id);
+function start() {
+  const [cols, n] = LV[level];
+  const set = Arcade.shuffle(EMOJI.slice()).slice(0, n);
+  const deck = Arcade.shuffle([...set, ...set]);
+  moves = found = 0; open = []; lock = false;
+  $('moves').textContent = 0; $('pairs').textContent = `0/${n}`;
+  const b = Arcade.best('memory-' + level, undefined, true).best; $('best').textContent = b ?? '–';
+  const board = $('board');
+  board.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  board.innerHTML = deck.map(e => `<div class="cardx" data-e="${e}"><div class="inner"><div class="face front">?</div><div class="face back-f">${e}</div></div></div>`).join('');
+}
+$('board').addEventListener('click', e => {
+  const c = e.target.closest('.cardx');
+  if (!c || lock || c.classList.contains('open') || c.classList.contains('done')) return;
+  c.classList.add('open'); Arcade.sfx.tap(); Arcade.buzz(10);
+  open.push(c);
+  if (open.length < 2) return;
+  moves++; $('moves').textContent = moves;
+  const [a, b] = open;
+  if (a.dataset.e === b.dataset.e) {
+    a.classList.add('done'); b.classList.add('done'); open = [];
+    found++; $('pairs').textContent = `${found}/${LV[level][1]}`;
+    Arcade.sfx.good();
+    if (found === LV[level][1]) {
+      const r = Arcade.best('memory-' + level, moves, true);
+      setTimeout(() => { Arcade.sfx.win(); Arcade.modal({ icon: r.isNew ? '🏆' : '🎉', title: r.isNew ? 'New best!' : 'You did it!', text: `All pairs found in ${moves} moves.`, onBtn: start }); }, 400);
+    }
+  } else {
+    lock = true;
+    setTimeout(() => { a.classList.remove('open'); b.classList.remove('open'); open = []; lock = false; }, 750);
+  }
+});
+Arcade.seg($('lvl'), v => { level = v; start(); });
+start();
+</script>
+</body>
+</html>
