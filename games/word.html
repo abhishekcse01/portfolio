@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Word Scramble</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .clue{font-size:64px;line-height:1;min-height:70px;text-align:center}
+  .clue.text{font-size:20px;font-weight:700;color:var(--mut);display:grid;place-items:center;padding:0 8px}
+  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:60px;width:100%}
+  .tile{appearance:none;border:0;cursor:pointer;font:inherit;font-weight:900;font-size:26px;width:clamp(38px,11vw,56px);aspect-ratio:1;
+    border-radius:14px;color:#fff;background:var(--a);box-shadow:0 4px 0 rgba(0,0,0,.25);text-transform:uppercase}
+  .tile:active{transform:translateY(3px)}
+  .tile.used{visibility:hidden}
+  .slot{background:var(--card);color:var(--tx);border:2px dashed var(--bd);box-shadow:none}
+  .slot.fill{border-style:solid;border-color:var(--b)}
+  .row.ok .slot{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .bar{width:100%;height:12px;background:var(--card);border-radius:99px;overflow:hidden;border:1px solid var(--bd)}
+  .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--ok),var(--warn))}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>🔤 Word Scramble</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="lvl"><button data-v="easy" class="on">Easy</button><button data-v="hard">Hard</button></div>
+  <div class="stats"><div class="stat"><small>Score</small><span id="score">0</span></div><div class="stat"><small>Best</small><span id="best">–</span></div></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="clue" id="clue">🔤</div>
+  <div class="row" id="slots"></div>
+  <div class="row" id="tiles"></div>
+  <div style="display:flex;gap:10px"><button class="btn" id="go">▶ Start (90s)</button><button class="btn ghost" id="skip" style="display:none">Skip ⏭</button></div>
+  <p class="hint" id="rule">Look at the picture and tap the letters in the right order!</p>
+</main>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const WORDS = {
+  easy: [['cat','🐱'],['dog','🐶'],['sun','☀️'],['bus','🚌'],['cow','🐮'],['pig','🐷'],['bee','🐝'],['egg','🥚'],['hat','🎩'],['car','🚗'],
+    ['fish','🐟'],['frog','🐸'],['moon','🌙'],['star','⭐'],['tree','🌳'],['cake','🎂'],['ball','⚽'],['duck','🦆'],['book','📖'],['milk','🥛'],
+    ['bear','🐻'],['lion','🦁'],['boat','⛵'],['rain','🌧️'],['kite','🪁'],['apple','🍎'],['train','🚂'],['house','🏠'],['mouse','🐭'],['pizza','🍕']],
+  hard: [['planet','It orbits a star'],['bridge','It crosses a river'],['guitar','Six strings'],['rocket','Flies to space'],['castle','A king lives here'],
+    ['island','Land surrounded by water'],['monkey','Loves bananas'],['winter','The coldest season'],['doctor','Helps sick people'],['garden','Flowers grow here'],
+    ['library','Full of books'],['rainbow','Colors after rain'],['kitchen','Where food is cooked'],['dolphin','A clever sea mammal'],['volcano','A mountain with lava'],
+    ['penguin','A bird that swims'],['holiday','Time off to relax'],['diamond','A very hard gem'],['picture','Hangs on a wall'],['blanket','Keeps you warm in bed'],
+    ['elephant','Has a long trunk'],['mountain','Very tall land'],['computer','You type on it'],['umbrella','Keeps you dry'],['sandwich','Bread with filling'],
+    ['treasure','Pirates bury it'],['dinosaur','Lived long ago'],['notebook','You write in it'],['airplane','Flies with wings'],['football','Kick it to score']],
+};
+const TOTAL = 90;
+let level = 'easy', score = 0, word, picked = [], letters = [], queue = [], running = false, endAt, raf, lock = false;
+function showBest() { $('best').textContent = Arcade.best('word-' + level).best ?? '–'; }
+function next() {
+  if (!queue.length) queue = Arcade.shuffle(WORDS[level].slice());
+  let clue; [word, clue] = queue.pop();
+  do { letters = Arcade.shuffle(word.split('')); } while (letters.join('') === word);
+  picked = []; lock = false;
+  $('clue').textContent = clue; $('clue').classList.toggle('text', level === 'hard');
+  $('slots').classList.remove('ok');
+  render();
+}
+function render() {
+  $('slots').innerHTML = word.split('').map((_, i) => `<button class="tile slot ${picked[i] !== undefined ? 'fill' : ''}" data-s="${i}">${picked[i] !== undefined ? letters[picked[i]] : ''}</button>`).join('');
+  $('tiles').innerHTML = letters.map((l, i) => `<button class="tile ${picked.includes(i) ? 'used' : ''}" data-t="${i}">${l}</button>`).join('');
+}
+function check() {
+  if (picked.length < word.length) return;
+  lock = true;
+  if (picked.map(i => letters[i]).join('') === word) {
+    score += word.length; $('score').textContent = score;
+    $('slots').classList.add('ok'); Arcade.sfx.good(); Arcade.buzz(20);
+    setTimeout(() => running && next(), 500);
+  } else {
+    Arcade.sfx.bad(); Arcade.buzz(80);
+    $('slots').classList.add('shake');
+    setTimeout(() => { $('slots').classList.remove('shake'); picked = []; lock = false; render(); }, 500);
+  }
+}
+$('tiles').addEventListener('click', e => {
+  const t = e.target.closest('.tile'); if (!t || !running || lock) return;
+  picked.push(+t.dataset.t); Arcade.sfx.tap(); render(); check();
+});
+$('slots').addEventListener('click', e => {
+  const s = e.target.closest('.slot'); if (!s || !running || lock) return;
+  const i = +s.dataset.s; if (picked[i] === undefined) return;
+  picked.length = i; Arcade.sfx.tap(); render(); // remove this letter and the ones after it
+});
+function tick() {
+  const left = Math.max(0, endAt - performance.now());
+  $('bar').style.width = (left / (TOTAL * 1000) * 100) + '%';
+  if (left <= 0) return end();
+  raf = requestAnimationFrame(tick);
+}
+function start() {
+  score = 0; $('score').textContent = 0; queue = [];
+  running = true; $('go').style.display = 'none'; $('skip').style.display = '';
+  endAt = performance.now() + TOTAL * 1000; next(); tick();
+}
+function end() {
+  running = false; cancelAnimationFrame(raf);
+  $('slots').innerHTML = $('tiles').innerHTML = ''; $('clue').textContent = '⏰'; $('clue').classList.remove('text');
+  $('go').style.display = ''; $('skip').style.display = 'none';
+  const r = Arcade.best('word-' + level, score); showBest(); Arcade.sfx.win();
+  Arcade.modal({ icon: r.isNew ? '🏆' : '🔤', title: r.isNew ? 'New best!' : 'Time\'s up!', text: `You scored ${score} points.`, onBtn: start });
+}
+$('go').onclick = start;
+$('skip').onclick = () => { if (running && !lock) { Arcade.sfx.tap(); next(); } };
+Arcade.seg($('lvl'), v => {
+  level = v; showBest();
+  $('rule').textContent = v === 'easy' ? 'Look at the picture and tap the letters in the right order!' : 'Read the clue and unscramble the longer word. Tap a placed letter to undo.';
+  if (running) end();
+});
+showBest();
+</script>
+</body>
+</html>

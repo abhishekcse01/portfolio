@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Quick Math</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .q{font-size:clamp(44px,14vw,64px);font-weight:900;text-align:center;min-height:80px;letter-spacing:.02em}
+  .answers{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+  .ans{appearance:none;border:0;cursor:pointer;font:inherit;font-size:32px;font-weight:900;min-height:84px;border-radius:20px;color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+  .ans:active{transform:translateY(3px)}
+  .ans.right{background:var(--ok)!important} .ans.wrong{background:var(--bad)!important}
+  .bar{width:100%;height:12px;background:var(--card);border-radius:99px;overflow:hidden;border:1px solid var(--bd)}
+  .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--ok),var(--warn));transition:width .1s linear}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>➕ Quick Math</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="lvl"><button data-v="easy" class="on">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button></div>
+  <div class="stats"><div class="stat"><small>Score</small><span id="score">0</span></div><div class="stat"><small>Streak</small><span id="streak">0</span></div><div class="stat"><small>Best</small><span id="best">–</span></div></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="q" id="q">Ready?</div>
+  <div class="answers" id="answers"></div>
+  <button class="btn" id="go">▶ Start (60s)</button>
+  <p class="hint" id="rule">Add and take away up to 10. Tap the right answer!</p>
+</main>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = ['#7c5cff', '#22a6c9', '#ff6fae', '#f59e0b'];
+const RULES = { easy: 'Add and take away up to 10. Tap the right answer!', medium: 'Bigger sums and times tables up to 5.', hard: 'All four operations, bigger numbers. Go fast!' };
+const TOTAL = 60;
+let level = 'easy', score = 0, streak = 0, answer, endAt, running = false, raf, lock = false;
+const rnd = (a, b) => a + Math.random() * (b - a + 1) | 0;
+function makeQ() {
+  let a, b, op;
+  if (level === 'easy') { op = Math.random() < .5 ? '+' : '−'; a = rnd(0, 10); b = rnd(0, 10); if (op === '−' && b > a) [a, b] = [b, a]; }
+  else if (level === 'medium') { op = ['+', '−', '×'][rnd(0, 2)]; if (op === '×') { a = rnd(1, 5); b = rnd(1, 10); } else { a = rnd(5, 50); b = rnd(1, 30); if (op === '−' && b > a) [a, b] = [b, a]; } }
+  else { op = ['+', '−', '×', '÷'][rnd(0, 3)]; if (op === '×') { a = rnd(3, 12); b = rnd(3, 12); } else if (op === '÷') { b = rnd(2, 12); a = b * rnd(2, 12); } else { a = rnd(20, 150); b = rnd(10, 99); if (op === '−' && b > a) [a, b] = [b, a]; } }
+  answer = op === '+' ? a + b : op === '−' ? a - b : op === '×' ? a * b : a / b;
+  const opts = new Set([answer]);
+  while (opts.size < 4) { const d = answer + rnd(-5, 5) || rnd(1, 9); if (d >= 0 && d !== answer) opts.add(d); }
+  $('q').textContent = `${a} ${op} ${b}`;
+  $('answers').innerHTML = Arcade.shuffle([...opts]).map((v, i) => `<button class="ans" style="background:${COLORS[i]}" data-v="${v}">${v}</button>`).join('');
+  lock = false;
+}
+function tick() {
+  const left = Math.max(0, endAt - performance.now());
+  $('bar').style.width = (left / (TOTAL * 1000) * 100) + '%';
+  if (left <= 0) return end();
+  raf = requestAnimationFrame(tick);
+}
+function start() {
+  score = streak = 0; $('score').textContent = 0; $('streak').textContent = 0;
+  running = true; $('go').style.display = 'none';
+  endAt = performance.now() + TOTAL * 1000; makeQ(); tick();
+}
+function end() {
+  running = false; cancelAnimationFrame(raf);
+  $('answers').innerHTML = ''; $('q').textContent = '⏰';
+  const r = Arcade.best('math-' + level, score); showBest();
+  Arcade.sfx.win(); $('go').style.display = '';
+  Arcade.modal({ icon: r.isNew ? '🏆' : '🧮', title: r.isNew ? 'New best!' : 'Time\'s up!', text: `You scored ${score} points.`, onBtn: start });
+}
+$('answers').addEventListener('click', e => {
+  const btn = e.target.closest('.ans'); if (!btn || !running || lock) return;
+  lock = true;
+  if (+btn.dataset.v === answer) {
+    streak++; score += 1 + Math.floor(streak / 5); // streak bonus
+    btn.classList.add('right'); Arcade.sfx.good(); Arcade.buzz(15);
+    setTimeout(makeQ, 250);
+  } else {
+    streak = 0; btn.classList.add('wrong'); Arcade.sfx.bad(); Arcade.buzz(80);
+    [...$('answers').children].find(b => +b.dataset.v === answer).classList.add('right');
+    endAt -= 2000; // small time penalty instead of game over
+    setTimeout(makeQ, 700);
+  }
+  $('score').textContent = score; $('streak').textContent = streak;
+});
+function showBest() { $('best').textContent = Arcade.best('math-' + level).best ?? '–'; }
+$('go').onclick = start;
+Arcade.seg($('lvl'), v => { level = v; $('rule').textContent = RULES[v]; showBest(); if (running) end(); });
+showBest();
+</script>
+</body>
+</html>

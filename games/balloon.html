@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Balloon Pop</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="games.css">
+<style>
+  .sky{position:relative;width:100%;flex:1;min-height:380px;border-radius:24px;overflow:hidden;touch-action:none;
+    background:linear-gradient(#7dd3fc,#c4b5fd);border:1px solid var(--bd)}
+  .bl{position:absolute;bottom:-90px;font-size:56px;line-height:1;cursor:pointer;will-change:transform;filter:drop-shadow(0 4px 4px rgba(0,0,0,.15))}
+  .boom{position:absolute;font-size:40px;pointer-events:none;animation:boom .4s forwards}
+  .plus{position:absolute;font-weight:900;font-size:22px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.4);pointer-events:none;animation:up .6s forwards}
+  @keyframes boom{to{transform:scale(1.8);opacity:0}}
+  @keyframes up{to{transform:translateY(-40px);opacity:0}}
+  .start{position:absolute;inset:0;display:grid;place-items:center}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="index.html" aria-label="Back">←</a><h1>🎈 Balloon Pop</h1><span style="width:44px"></span></div>
+<main class="wrap">
+  <div class="seg" id="lvl"><button data-v="easy" class="on">Easy</button><button data-v="hard">Hard</button></div>
+  <div class="stats"><div class="stat"><small>Score</small><span id="score">0</span></div><div class="stat"><small>Time</small><span id="time">30</span></div><div class="stat"><small>Best</small><span id="best">–</span></div></div>
+  <div class="sky" id="sky"><div class="start" id="startBox"><button class="btn" id="go">▶ Start</button></div></div>
+  <p class="hint" id="rule">Pop as many balloons as you can in 30 seconds!</p>
+</main>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = ['🎈'], HUES = [0, 40, 120, 200, 280, 320];
+const LV = {
+  easy: { speed: [55, 85], every: 700, bomb: 0, gold: .08 },
+  hard: { speed: [110, 190], every: 420, bomb: .18, gold: .06 },
+};
+let level = 'easy', score = 0, time = 30, items = [], running = false, last = 0, spawnT = 0, timer;
+const sky = $('sky');
+function showBest() { $('best').textContent = Arcade.best('balloon-' + level).best ?? '–'; }
+function spawn() {
+  const cfg = LV[level], r = Math.random();
+  const kind = r < cfg.bomb ? 'bomb' : r < cfg.bomb + cfg.gold ? 'gold' : 'bal';
+  const el = document.createElement('div');
+  el.className = 'bl';
+  el.textContent = kind === 'bomb' ? '💣' : kind === 'gold' ? '⭐' : '🎈';
+  if (kind === 'bal') el.style.filter += ` hue-rotate(${HUES[Math.random() * HUES.length | 0]}deg)`;
+  const w = sky.clientWidth;
+  const x = Math.random() * (w - 60);
+  el.style.left = x + 'px';
+  const it = { el, kind, y: 0, x, v: cfg.speed[0] + Math.random() * (cfg.speed[1] - cfg.speed[0]), wob: Math.random() * 6 };
+  el.addEventListener('pointerdown', ev => { ev.preventDefault(); pop(it); });
+  sky.appendChild(el); items.push(it);
+}
+function fx(it, text) {
+  const r = it.el.getBoundingClientRect(), s = sky.getBoundingClientRect();
+  const b = document.createElement('div'); b.className = 'boom'; b.textContent = it.kind === 'bomb' ? '💥' : '✨';
+  b.style.left = r.left - s.left + 'px'; b.style.top = r.top - s.top + 'px'; sky.appendChild(b);
+  const p = document.createElement('div'); p.className = 'plus'; p.textContent = text;
+  p.style.left = r.left - s.left + 16 + 'px'; p.style.top = r.top - s.top + 'px'; sky.appendChild(p);
+  setTimeout(() => { b.remove(); p.remove(); }, 650);
+}
+function pop(it) {
+  if (!running || it.dead) return;
+  it.dead = true; it.el.remove();
+  if (it.kind === 'bomb') { score = Math.max(0, score - 5); fx(it, '-5'); Arcade.sfx.bad(); Arcade.buzz(120); sky.classList.add('shake'); setTimeout(() => sky.classList.remove('shake'), 500); }
+  else { const pts = it.kind === 'gold' ? 5 : 1; score += pts; fx(it, '+' + pts); Arcade.tone(500 + Math.random() * 400, .08, 'triangle'); Arcade.buzz(15); }
+  $('score').textContent = score;
+}
+function loop(t) {
+  if (!running) return;
+  const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
+  spawnT += dt * 1000;
+  if (spawnT > LV[level].every) { spawnT = 0; spawn(); }
+  const h = sky.clientHeight + 120;
+  items = items.filter(it => {
+    if (it.dead) return false;
+    it.y += it.v * dt;
+    const wx = Math.sin((it.y + it.wob * 50) / 40) * 8;
+    it.el.style.transform = `translate(${wx}px,${-it.y}px)`;
+    if (it.y > h) { it.el.remove(); return false; }
+    return true;
+  });
+  requestAnimationFrame(loop);
+}
+function start() {
+  items.forEach(i => i.el.remove()); items = [];
+  score = 0; time = 30; $('score').textContent = 0; $('time').textContent = 30;
+  $('startBox').style.display = 'none';
+  running = true; last = performance.now(); spawnT = 9999;
+  requestAnimationFrame(loop);
+  clearInterval(timer);
+  timer = setInterval(() => {
+    time--; $('time').textContent = time;
+    if (time <= 5 && time > 0) Arcade.tone(880, .05);
+    if (time <= 0) end();
+  }, 1000);
+}
+function end() {
+  running = false; clearInterval(timer);
+  items.forEach(i => i.el.remove()); items = [];
+  const r = Arcade.best('balloon-' + level, score); showBest();
+  Arcade.sfx.win();
+  Arcade.modal({ icon: r.isNew ? '🏆' : '🎈', title: r.isNew ? 'New best!' : 'Time\'s up!', text: `You scored ${score} points.`, onBtn: start });
+  $('startBox').style.display = 'grid';
+}
+$('go').onclick = start;
+Arcade.seg($('lvl'), v => {
+  level = v; showBest();
+  $('rule').textContent = v === 'easy' ? 'Pop as many balloons as you can in 30 seconds!' : 'Faster balloons! ⭐ = +5, 💣 = −5. Careful!';
+  if (running) end();
+});
+showBest();
+</script>
+</body>
+</html>

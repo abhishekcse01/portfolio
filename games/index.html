@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c5cff">
+<title>Mini Arcade</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+<link rel="stylesheet" href="games.css">
+<style>
+  .hero{text-align:center;padding:10px 0 4px}
+  .hero .logo{font-size:56px}
+  .hero h1{font-size:30px;font-weight:900;background:linear-gradient(90deg,var(--a),var(--b),var(--c));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:22px;padding:18px 14px;display:flex;flex-direction:column;gap:6px;
+    transition:transform .1s;position:relative;overflow:hidden}
+  .card:active{transform:scale(.96)}
+  .card .ic{font-size:44px;line-height:1}
+  .card b{font-size:17px}
+  .card span{color:var(--mut);font-size:13px;line-height:1.35}
+  .card .best{font-size:12px;color:var(--ok);font-weight:700}
+  .card::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:var(--h);opacity:.25}
+  .foot{display:flex;gap:10px;align-items:center;justify-content:center;color:var(--mut);font-size:14px}
+  @media (max-width:340px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top"><a class="back" href="../index.html" aria-label="Back to portfolio">←</a><span></span>
+  <button class="back" id="mute" aria-label="Toggle sound">🔊</button></div>
+<main class="wrap">
+  <div class="hero"><div class="logo">🎮</div><h1>Mini Arcade</h1><p class="hint">Quick, friendly games for kids &amp; grown-ups. Tap to play!</p></div>
+  <div class="grid">
+    <a class="card" href="memory.html" style="--h:var(--a)"><div class="ic">🧠</div><b>Memory Match</b><span>Flip cards, find the pairs</span><div class="best" data-k="memory-easy" data-l="moves"></div></a>
+    <a class="card" href="balloon.html" style="--h:var(--c)"><div class="ic">🎈</div><b>Balloon Pop</b><span>Pop balloons, dodge bombs</span><div class="best" data-k="balloon-easy" data-l="pts"></div></a>
+    <a class="card" href="tictactoe.html" style="--h:var(--b)"><div class="ic">⭕</div><b>Tic-Tac-Toe</b><span>Beat a friend or the robot</span><div class="best"></div></a>
+    <a class="card" href="simon.html" style="--h:var(--ok)"><div class="ic">🌈</div><b>Color Sequence</b><span>Watch, remember, repeat</span><div class="best" data-k="simon-easy" data-l="rounds"></div></a>
+    <a class="card" href="math.html" style="--h:var(--warn)"><div class="ic">➕</div><b>Quick Math</b><span>Race the clock with sums</span><div class="best" data-k="math-easy" data-l="pts"></div></a>
+    <a class="card" href="word.html" style="--h:var(--c)"><div class="ic">🔤</div><b>Word Scramble</b><span>Unscramble the letters</span><div class="best" data-k="word-easy" data-l="pts"></div></a>
+    <a class="card" href="slide.html" style="--h:var(--a)"><div class="ic">🧩</div><b>Slide Puzzle</b><span>Slide numbers into order</span><div class="best" data-k="slide-easy" data-l="moves"></div></a>
+    <a class="card" href="tictactoe.html?mode=friend" style="--h:var(--b)"><div class="ic">👫</div><b>Play a Friend</b><span>Two players, one phone</span></a>
+  </div>
+  <p class="foot">Add to Home Screen to play offline 📲</p>
+</main>
+<script src="common.js"></script>
+<script>
+  document.querySelectorAll('.best[data-k]').forEach(el => {
+    const v = localStorage.getItem('arcade:best:' + el.dataset.k);
+    if (v !== null) el.textContent = '🏆 Easy best: ' + v + ' ' + el.dataset.l;
+  });
+  const m = document.getElementById('mute');
+  const paint = () => m.textContent = Arcade.muted() ? '🔇' : '🔊';
+  paint();
+  m.onclick = () => { localStorage.setItem('arcade:mute', Arcade.muted() ? '0' : '1'); paint(); Arcade.sfx.tap(); };
+</script>
+</body>
+</html>
